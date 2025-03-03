@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css" integrity="sha512-dTfge/zgoMYpP7QbHy4gWMEGsbsdZeCXz7irItjcC3sPUFtf0kuFbDz/ixG7ArTxmDjLXDmezHubeNikyKGVyQ==" crossorigin="anonymous">
+</head>
+<body>
+
+  <title>Music Bingo</title>
+ 
+         <div class="container text-center mt-5">
+            <h3 class="mb-4">The Game is Locked</h3>
+       
+            <p>No more players can join this game. When a new game is started, try to join it.</p>
+            <button class="btn btn-primary" style="margin: 10px" id="resume_game">Request to Join</button>
+         </div>
+
+        <script>
+
+
+            host_url_main = "http://"+"{{run_on_host}}"+":"+"{{using_port}}"; 
+            console.log('Host url set from env vars: ', host_url_main);
+
+            const resumeButton = document.getElementById('resume_game');
+
+            // Click event listener to claim a win
+            resumeButton.addEventListener('click', resumeAction);
+
+            function resumeAction()
+            {
+                location.href = host_url_main+'/join';
+            }
+
+        </script>
+
+</body>
+</html>

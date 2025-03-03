@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css" integrity="sha512-dTfge/zgoMYpP7QbHy4gWMEGsbsdZeCXz7irItjcC3sPUFtf0kuFbDz/ixG7ArTxmDjLXDmezHubeNikyKGVyQ==" crossorigin="anonymous">
+
+        <style>
+        .customIndent {
+            padding-left: 15em;
+        }
+        </style>
+
+
+        <title>Music Bingo Player Page</title>
+    </head>
+    <body>
+        
+
+        <div class="container text-center mt-5">
+            <h3 class="mb-4">Music Bingo!</h3>
+       
+        <h3>The song list has not been loaded yet!</h3>
+        <h4>Your Player Id is {{player_id}}</h4>
+            <p class="lead">When the game operator tells you that the game is ready, press the button below.</p>
+            <button class="btn btn-primary btn-lg" style="margin: 10px" id="tryStartingGame"></button>
+            
+         </div>
+
+    <script>
+        player_id = '{{player_id}}'
+
+        host_url_main = "http://"+"{{run_on_host}}"+":"+"{{using_port}}"; 
+        
+        const startButton = document.getElementById('tryStartingGame');
+        if (player_id == 'None')
+        {
+            startButton.innerText = 'Obtain a Player Id!'
+        }
+        else
+        {
+            startButton.innerText = 'Start the Game!'
+        }
+        
+        // Click event listener to start game
+        startButton.addEventListener('click', startGame);
+
+        function startGame()
+        {
+            if (player_id == 'None')
+            {
+                window.location.href = host_url_main+'/join'; 
+            }
+            else
+            {
+                window.location.href = host_url_main+'/card?keep_id=True'; 
+            }
+               
+        }
+
+        
+    </script>
+
+
+    </body>
+</html>

@@ -1,0 +1,154 @@
+scratchpad.txt
+
+To create a layout where each `gridWrapper` contains two grids side by side, we need to adjust the structure of our HTML and the CSS a bit. We will ensure that each wrapper holds two grid containers in a flexbox layout. Here’s the modified code for this requirement:
+### Updated JavaScript (script.js)
+We will modify the `createGrids` function to append two side-by-side grids within each `gridWrapper`. Both grids inside a wrapper can be created using a loop.
+```javascript
+const gridCount = 6; // Total number of grids, can be set to any even number
+const grids = []; // Array to hold all the grids
+// Function to create multiple grid pairs
+function createGridPairs() {
+    const container = document.getElementById('gridsContainer'); // Create a container for all grid wrappers
+    for (let g = 0; g < gridCount / 2; g++) { // Loop for grid pairs
+        // Create a wrapper for two grids
+        const gridWrapper = document.createElement('div');
+        gridWrapper.className = 'grid-wrapper';
+        for (let i = 0; i < 2; i++) { // Create two grids in each wrapper
+            const gridContainer = document.createElement('div');
+            gridContainer.className = 'grid-container';
+            // Create grid title
+            const title = document.createElement('h3');
+            title.innerText = `Grid ${g * 2 + i + 1}`; // Set title text
+            gridContainer.appendChild(title); // Add title to the grid
+            for (let j = 0; j < 25; j++) { // Create 25 cells for each grid
+                const cell = document.createElement('div');
+                cell.className = 'cell';
+                cell.setAttribute('data-color', 'white'); // Default color
+                // Add click event to change color on click
+                cell.addEventListener('click', () => {
+                    toggleCellColor(cell);
+                });
+                gridContainer.appendChild(cell);
+            }
+            // Push the grid to the grids array
+            grids.push(gridContainer);
+            gridWrapper.appendChild(gridContainer); // Add grid to the wrapper
+        }
+        // Append the grid wrapper to the main container
+        container.appendChild(gridWrapper);
+    }
+}
+function toggleCellColor(cell) {
+    const currentColor = cell.style.backgroundColor;
+    if (currentColor === '' || currentColor === 'white') {
+        cell.style.backgroundColor = 'green';
+        cell.setAttribute('data-color', 'green');
+    } else if (currentColor === 'green') {
+        cell.style.backgroundColor = 'blue';
+        cell.setAttribute('data-color', 'blue');
+    } else {
+        cell.style.backgroundColor = 'white';
+        cell.setAttribute('data-color', 'white');
+    }
+}
+function changeCellColor(gridIndex, cellIndex, color) {
+    if (gridIndex < 0 || gridIndex >= grids.length) {
+        console.error('Grid index out of bounds. Please provide a valid grid index.');
+        return;
+    }
+    const cells = grids[gridIndex].querySelectorAll('.cell');
+    if (cellIndex < 0 || cellIndex >= cells.length) {
+        console.error('Cell index out of bounds. Please provide an index between 0 and 24.');
+        return;
+    }
+    const cell = cells[cellIndex];
+    cell.style.backgroundColor = color;
+    cell.setAttribute('data-color', color);
+}
+function changeColorInGrid(gridIndex, color) {
+    if (gridIndex < 0 || gridIndex >= grids.length) {
+        console.error('Grid index out of bounds. Please provide a valid grid index.');
+        return;
+    }
+    const cells = grids[gridIndex].querySelectorAll('.cell');
+    cells.forEach(cell => {
+        cell.style.backgroundColor = color;
+        cell.setAttribute('data-color', color);
+    });
+}
+// Initial call to create the grid pairs
+createGridPairs();
+```
+### Updated HTML Structure
+Here is the updated HTML part to reflect the changes:
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multiple Round Grids</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="gridsContainer"></div> <!-- Parent container for multiple grid wrappers -->
+    <div class="controls">
+        <button onclick="changeColorInGrid(0, 'green')">Change All Grid 1 to Green</button>
+        <button onclick="changeColorInGrid(0, 'blue')">Change All Grid 1 to Blue</button>
+        <button onclick="changeCellColor(1, 7, 'blue')">Change Cell 7 in Grid 2 to Blue</button> <!-- Example usage -->
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
+```
+### Updated CSS (styles.css)
+The CSS needs to support the new layout of having two grids side by side. Here’s how you can update your CSS:
+```css
+body {
+    font-family: Arial, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 0;
+    padding: 20px;
+}
+.grid-wrapper {
+    display: flex; /* Allow grids to be side by side */
+    justify-content: space-between; /* Space between the two grids */
+    margin-bottom: 20px; /* Spacing between grid pairs */
+}
+.grid-container {
+    display: grid;
+    grid-template-columns: repeat(5, 100px);
+    grid-template-rows: repeat(5, 100px);
+    gap: 10px; /* Spacing between cells */
+    width: 50%; /* Each grid takes half of the wrapper's width */
+}
+.cell {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%; /* Makes the cells round */
+    background-color: white; /* Initial color */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.3s; /* Smooth transition */
+    cursor: pointer; /* Change cursor to pointer */
+}
+.cell:hover {
+    opacity: 0.8; /* Slightly change opacity on hover */
+}
+h3 {
+    text-align: center; /* Center align grid titles */
+    color: #333; /* Optional: Change title color */
+}
+```
+### Explanation of Changes
+1. **Creating Grid Pairs**:
+   - The `createGridPairs` function now constructs two grid containers for each `gridWrapper`, ensuring they are placed side by side using flexbox.
+2. **Grid Layout**:
+   - Each grid is given a width of `50%` to ensure they fit side by side within the wrapper. This makes for a responsive layout that can adapt to varying screen sizes.
+3. **Flexbox**:
+   - Using the `display: flex` property on the `.grid-wrapper`, we align the two grids horizontally and added spacing to separate them visually.
+### Result
+With these changes, each `gridWrapper` will now neatly contain two grids placed side by side, complete with titles above them. The layout is organized, and the grids will function as specified, allowing interactivity and color changes as before.

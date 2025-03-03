@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Timeout</title>
+
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css" integrity="sha512-dTfge/zgoMYpP7QbHy4gWMEGsbsdZeCXz7irItjcC3sPUFtf0kuFbDz/ixG7ArTxmDjLXDmezHubeNikyKGVyQ==" crossorigin="anonymous">
+
+</head>
+
+<body>
+
+    <div class="container text-center mt-4">
+        <h4 class="mb-4">Test Timeout</h4>
+        <button class="btn btn-primary" style="margin: 10px" id="testButton">
+            Test Timeout
+        </button>
+        <p id="responseMessage"/>
+    </div>
+
+  <script>
+    const responseText = document.getElementById('declareWin');
+
+    // Usage example
+    const url = 'http://localhost:8080/win_claims';
+    
+    function fetchButton()
+    {
+        console.log('fetch request...');
+        fetchWithRetry(url)
+            .then(data => console.log('Data received:', data))
+            .catch(err => console.error('Error occurred:', err.message));
+
+    }
+
+
+    // Click event listener to initiate a test request with the fetch button
+    testButton.addEventListener('click', fetchButton);
+
+    async function fetchWithRetry(url, options = {}, retries = 3, timeout = 2000) 
+    {
+        console.log('fetchWithRetry entry')
+
+        const controller = new AbortController(); // Create a new AbortController
+        const signal = controller.signal; // Get the signal to abort the fetch request
+        
+        // Build a promise that rejects after the given timeout
+        const timeoutPromise = new Promise((_, reject) =>
+                setTimeout(() => 
+                {
+                    controller.abort(); // Abort the fetch request
+                    reject(new Error('Request timed out'));
+                }, timeout));
+
+                console.log('timeout set: ', timeout);
+        
+        // Fetch function that wraps the fetch call
+        const fetchPromise = async () => 
+        {
+            const response = await fetch(url, { ...options, signal });
+            if (!response.ok) 
+            {
+                // If the response is not OK, throw an error to trigger retry
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            rspJson = response.json();
+            console.log('response received: ', rspJson);
+            return rspJson; // Assuming we are expecting JSON response
+        };
+        
+        for (let attempt = 0; attempt < retries; attempt++) 
+        {
+            try 
+            {
+                console.log('trying request...')
+                return await Promise.race([fetchPromise(), timeoutPromise]);
+            } 
+            catch (error) 
+            {
+                if (attempt < retries - 1) 
+                {
+                    console.warn(`Attempt ${attempt + 1} failed:`, error.message);
+                    continue; // Retry
+                }
+                throw error; // If last attempt failed, throw the error
+            }
+        }
+    }
+
+  </script>
+
+
+</body>
+</html>

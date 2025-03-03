@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css" integrity="sha512-dTfge/zgoMYpP7QbHy4gWMEGsbsdZeCXz7irItjcC3sPUFtf0kuFbDz/ixG7ArTxmDjLXDmezHubeNikyKGVyQ==" crossorigin="anonymous">
+
+        <style>
+        .customIndent {
+            padding-left: 15em;
+        }
+        </style>
+
+
+        <title>Music Bingo</title>
+    </head>
+    <body>
+        
+
+        <div class="container text-center mt-5">
+            <h3 class="mb-4">Music Bingo</h3>
+       
+            <p>You have released your Player ID so another player can use it.</p>
+            <p>To re-join the game, see the Game Runner.</p>
+            
+
+            <button class="btn btn-primary" style="margin: 10px" id="join_game">Request to Re-join Game</button>
+
+
+         </div>
+
+         <script type="text/javascript">
+             
+            host_url_main = "http://"+"{{run_on_host}}"+":"+"{{using_port}}"; 
+            console.log('Host url set from env vars: ', host_url_main);
+
+          
+            const joinButton = document.getElementById('join_game');
+
+            // Click event listener to claim a win
+            joinButton.addEventListener('click', joinAction);
+
+            function joinAction()
+            {
+                location.href = host_url_main+'/join';
+            }
+
+            localStorage.setItem('doNotAskAgain', 'false'); 
+        
+
+         </script>
+
+    </body>
+</html>

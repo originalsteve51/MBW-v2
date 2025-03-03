@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css" integrity="sha512-dTfge/zgoMYpP7QbHy4gWMEGsbsdZeCXz7irItjcC3sPUFtf0kuFbDz/ixG7ArTxmDjLXDmezHubeNikyKGVyQ==" crossorigin="anonymous">
+
+        <style>
+body {
+    font-family: Arial, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 0;
+    padding: 20px;
+}
+.grid-container {
+    display: grid;
+    grid-template-columns: repeat(5, 10px);
+    grid-template-rows: repeat(5, 10px);
+    gap: 10px;
+    background-color: lightblue;
+    padding: 10px;
+    margin: 20px;
+}
+.cell {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%; /* Makes the cells round */
+    background-color: white; /* Initial color */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.3s; /* Smooth transition */
+    cursor: pointer; /* Change cursor to pointer */
+}
+.cell:hover {
+    opacity: 0.8; /* Slightly change opacity on hover */
+}
+
+.grid-wrapper {
+    display: flex; /* Allow grids to be side by side */
+    justify-content: space-between; /* Space between the two grids */
+    margin-bottom: 20px; /* Spacing between grid pairs */
+}
+h3 {
+    text-align: center; /* Center align grid titles */
+    color: darkblue; /* Optional: Change title color */
+}
+
+.customIndent {
+    padding-left: 15em;
+}
+
+
+        </style>
+
+
+        <title>Music Bingo Admin Page</title>
+    </head>
+    <body>
+        
+
+        <div class="container text-center mt-5">
+            <h3 class="mb-4">Music Bingo Admin</h3>
+       
+            <h3>Player Status</h3>
+                <p>Active Player IDs: {{active_player_ids}}</p>
+                <p>Inactive Player IDs: {{inactive_player_ids}}</p>
+                <p>Invalid login flags: {{invalid_login}}</p> 
+                <p>Players Locked from Joining: {{lock_flag}}</p>
+                <p id="tappedStates"></p>
+            <!-- <button class="btn btn-primary" style="margin: 10px" id="addToInactiveList">Add to Inactive Player List</button> -->   
+            <button class="btn btn-warning" style="margin: 10px" id="lockPlayerToggle">Lock/Unlock the Game</button>    
+            <button class="btn btn-danger" style="margin: 10px" id="signOffAll">Sign Off All Players</button>
+        </div>
+
+          <div id="gridsContainer"></div>
+
+        <script type="text/javascript">
+            host_url_main = "http://"+"{{run_on_host}}"+":"+"{{using_port}}"; 
+
+            const signOffAllButton = document.getElementById('signOffAll');
+            signOffAllButton.addEventListener('click', signOffAllAction);
+
+            //const addInactiveButton = document.getElementById('addToInactiveList');
+            //addInactiveButton.addEventListener('click', addInactiveAction);
+
+            const lockGameButton = document.getElementById('lockPlayerToggle');
+            lockGameButton.addEventListener('click', lockGameAction);
+
+            const tappedStatesView = document.getElementById('tappedStates');
+
+// The Following function needs to be synchronous because we come back to this page
+// to show results of signing off the players. If call is made async, there
+// is a race condition with the update of the server data and the display of
+// the admin page.
+function signOffAllAction()
+{
+    syncJsonGetRequest(host_url_main+'/signOffAll');
+}
+
+function lockGameAction()
+{
+    syncJsonGetRequest(host_url_main+'/lockGame');
+}
+
+function syncJsonGetRequest(url) 
+{
+    // Create a new instance of XMLHttpRequest
+    var xhr = new XMLHttpRequest();
+    // Initialize the request: true for async, false for sync. We set it to false.
+    xhr.open("GET", url, false); // false makes the request synchronous
+    // Set the request header (optional, depending on API requirements)
+    xhr.setRequestHeader("Content-Type", "application/json");
+    // Send the request
+    xhr.send();
+
+    // Reload this page to show changes to the data
+    location.reload();
+}
+
+
+function getTappedStatesSync(card_number) 
+{
+    const jsonData = 
+    {
+        card_to_retrieve: card_number
+    };
+
+    var xhr = new XMLHttpRequest();
+
+    // Open a synchronous GET request
+    xhr.open("POST", host_url_main+'/getTappedStates', false); 
+    xhr.setRequestHeader("Content-Type", "application/json"); 
+    
+    try 
+    {
+        xhr.send(JSON.stringify(jsonData)); 
+        
+        // Check if the request was successful
+        if (xhr.status >= 200 && xhr.status < 300) 
+        {
+            // console.log('Server says tapped states are:')
+            // console.log(JSON.parse(xhr.responseText).states); 
+            stateArray = JSON.parse(xhr.responseText).states;
+            if (stateArray.length != 0)
+            {    
+                return JSON.parse(stateArray); 
+            }
+            else
+            {
+                return [];
+            }
+        } else 
+        {
+            console.error('Request failed. Status:', xhr.status);
+            return null; 
+        }
+    } 
+    catch (e) 
+    {
+        console.error('Error during the request:', e);
+        return null; 
+    }
+}
+
+
+// @todo Get by card number
+function getEngineSelectionStatesSync() 
+{
+    const jsonData = 
+    {
+        // card_to_retrieve: card_number
+    };
+
+    var xhr = new XMLHttpRequest();
+
+    // Open a synchronous GET request
+    xhr.open("POST", host_url_main+'/get_game_selections', false); 
+    xhr.setRequestHeader("Content-Type", "application/json"); 
+    
+    try 
+    {
+        xhr.send(JSON.stringify(jsonData)); 
+        
+        // Check if the request was successful
+        if (xhr.status >= 200 && xhr.status < 300) 
+        {
+            // console.log('Server says game selections are:')
+            // console.log(xhr.responseText); 
+            return xhr.responseText; 
+        } else 
+        {
+            console.error('Request failed. Status:', xhr.status);
+            return null; 
+        }
+    } 
+    catch (e) 
+    {
+        console.error('Error during the request:', e);
+        return null; 
+    }
+}
+
+
+
+
+USER_PICKS = 1;
+GAME_PICKS = 2;
+
+window.onload = function() 
+{
+          
+    strActiveIdSet = '{{active_player_ids}}';
+    
+    const trimmedStr = strActiveIdSet.replace(/^{|}$/g, '');
+    const stringArray = trimmedStr.split(',');
+    const resultSet = new Set(stringArray.map(Number));
+    const sortedArray = Array.from(resultSet).sort((a, b) => a - b);
+    
+    
+    // When we have data to build a grid, do so.
+    // Determine based on NaN type of the first array element...
+    if (!isNaN(sortedArray[0]))
+    {
+        createGridPairs(sortedArray);
+
+        elementIdx = 0;
+        sortedArray.forEach(element => 
+        {   
+            processStateArrays(USER_PICKS, elementIdx, element, sortedArray.length*2);
+            elementIdx++;
+        }); 
+
+        // @todo get by card number
+        processGameSelectionStates(sortedArray.length*2);
+
+    
+    }
+    else
+    {
+        const container = document.getElementById('gridsContainer'); 
+        const title = document.createElement('h3');
+        title.innerText = 'No Player Cards to Display!';
+        container.appendChild(title);  
+    }
+    
+
+            
+}; 
+
+function processGameSelectionStates(gridCount)
+{
+    gameEngineSelectionStates = JSON.parse(getEngineSelectionStatesSync()).states;
+
+    Object.keys(gameEngineSelectionStates).forEach(key => 
+    {
+        gridIndex = key*2+1;
+        
+        selectionArray = gameEngineSelectionStates[key];
+        for (idx=0; idx<selectionArray.length; idx++)
+        {
+            if (idx != 12)
+            {
+                if (selectionArray[idx])
+                {
+                    changeCellColor(gridIndex, idx,'darkblue');   
+                }   
+            }
+           
+        }
+    });
+
+
+
+}
+
+function processStateArrays(choice, elementIdx, element, gridCount)
+{
+    console.log('Card # '+element);
+    if (choice == USER_PICKS)
+    {
+        stateArray = getTappedStatesSync(element);
+        console.log('stateArray: ', stateArray)
+    }
+    else
+    {
+        // Nothing
+    }
+
+    for (idx=0; idx<stateArray.length; idx++)
+    {
+        if (choice == USER_PICKS)
+        {
+            gridIndex = elementIdx*2;
+        }
+        else
+        {
+            gridIndex = elementIdx*2+1;
+        }
+        if (idx != 12)
+        {
+            if (stateArray[idx])
+            {
+                changeCellColor(gridIndex, idx,'darkblue');   
+            }   
+        }
+        
+    }
+
+    // Change all center dots to red
+    for (gridIndex=0; gridIndex<gridCount; gridIndex++)
+    {
+        changeCellColor(gridIndex, 12,'red');   
+    }
+   
+}
+
+const grids = []; // Array to hold all the grids
+
+
+function createGridPairs(sortedArray) 
+{
+    const container = document.getElementById('gridsContainer'); 
+    gridCount = sortedArray.length * 2;
+
+    // Loop for grid pairs
+    for (let g = 0; g < gridCount / 2; g++) 
+    { 
+        // Create a wrapper for two grids
+        const gridWrapper = document.createElement('div');
+
+        gridWrapper.className = 'grid-wrapper';
+
+        // Create two grids in each wrapper
+        for (let i = 0; i < 2; i++) 
+        { 
+            const gridContainer = document.createElement('div');
+
+            gridContainer.className = 'grid-container';
+
+            if (i % 2 == 0)
+            {
+                // Create grid title
+                const title = document.createElement('h3');
+
+                title.innerText = `Card ${sortedArray[g]}`; // `Card ${g * 2 + i + 1}`; // Set title text
+
+                gridWrapper.appendChild(title); // Add title to the grid
+            }
+
+            for (let j = 0; j < 25; j++) { // Create 25 cells for each grid
+                const cell = document.createElement('div');
+                cell.className = 'cell';
+                cell.setAttribute('data-color', 'white'); // Default color
+                
+                gridContainer.appendChild(cell);
+            }
+            // Push the grid to the grids array
+            grids.push(gridContainer);
+            gridWrapper.appendChild(gridContainer); // Add grid to the wrapper
+            // Append the grid wrapper to the main container
+        container.appendChild(gridWrapper);
+
+        }
+    }
+}
+
+
+
+
+function changeCellColor(gridIndex, cellIndex, color) 
+{
+    // console.log('gridIndex ', gridIndex);
+
+
+    if (gridIndex < 0 || gridIndex >= grids.length) {
+        console.error('Grid index out of bounds. Please provide a valid grid index.');
+        return;
+    }
+    const cells = grids[gridIndex].querySelectorAll('.cell');
+    
+    if (cellIndex < 0 || cellIndex >= cells.length) {
+        console.error('Cell index out of bounds. Please provide an index between 0 and 24.');
+        return;
+    }
+    const cell = cells[cellIndex];
+    cell.style.backgroundColor = color;
+    cell.setAttribute('data-color', color);
+}
+// Function to change all cells in a specific grid to a specific color
+function changeColorInGrid(gridIndex, color) {
+    if (gridIndex < 0 || gridIndex >= grids.length) {
+        console.error('Grid index out of bounds. Please provide a valid grid index.');
+        return;
+    }
+    const cells = grids[gridIndex].querySelectorAll('.cell');
+    cells.forEach(cell => {
+        cell.style.backgroundColor = color;
+        cell.setAttribute('data-color', color);
+    });
+}
+
+function forceRefresh() {
+    setInterval(() => {
+        window.location.reload();
+    }, 10000); // 1000 milliseconds = 1 second
+}
+// Call the refresh function
+forceRefresh();  
+
+
+
+        </script>
+ 
+    </body>
+</html>
