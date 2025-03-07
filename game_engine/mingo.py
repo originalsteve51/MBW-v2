@@ -788,8 +788,8 @@ class WebMonitor():
                 self._cmdprocessor.do_view(card_to_check)
             
             # print('webmonitor stop_count', stop_count)
-            if track_timer:
-                print('track_timer is_running', track_timer.is_running())
+            # if track_timer:
+            #    print('track_timer is_running', track_timer.is_running())
 
             if (self._voting_allowed and \
                 stop_count>=self._trigger_vote_count and \
@@ -838,7 +838,24 @@ class CommandProcessor(cmd.Cmd):
         try:
             if seconds and int(seconds) >= 0:
                 song_timeout = int(seconds)
+                self.auto_cmd = f':auto {self.web_monitor._trigger_vote_count}, {song_timeout})'
+                if self.active_game:
+                    self.prompt = f'\033[97m({self.active_game.playlist_name}'+self.auto_cmd+self.end_highlight
+                else:
+                    self.prompt = f'\033[97m(No Active Game'+self.auto_cmd+self.end_highlight
+
                 print(f'Songs will play at least {song_timeout} seconds.')
+
+                # Send timeout and next_trigger_votes to web controller so it will update
+                # these on each user screen
+                votes_required = {"votes_required": self.web_monitor._trigger_vote_count,
+                                  "song_timeout": str(song_timeout)}
+                                  
+                requests.post(web_controller_url+'/set_votes_required',
+                                    json=json.dumps(votes_required))
+
+
+
             else:
                 print(f'Song minimum play time set to {song_timeout} seconds.')
         except ValueError:
@@ -890,7 +907,7 @@ class CommandProcessor(cmd.Cmd):
         '''
 
     def do_auto(self, next_trigger_votes):
-            self.auto_cmd = f':auto {next_trigger_votes})'
+            self.auto_cmd = f':auto {next_trigger_votes}, {song_timeout})'
             if self.active_game:
                 self.prompt = f'\033[97m({self.active_game.playlist_name}'+self.auto_cmd+self.end_highlight
             else:
@@ -923,7 +940,9 @@ class CommandProcessor(cmd.Cmd):
                 
                 # Send next_trigger_votes to web controller so it will update
                 # this on each user screen
-                votes_required = {"votes_required": next_trigger_votes}
+                votes_required = {"votes_required": next_trigger_votes,
+                                  "song_timeout": str(song_timeout)}
+
                 requests.post(web_controller_url+'/set_votes_required',
                                     json=json.dumps(votes_required))
 
@@ -1229,7 +1248,7 @@ class TimerThread:
     def _run(self):
         # print(f'Timer started for {self.interval} seconds')
         for t in range(self.interval):
-            # print('tick-tock')
+            print('tick-tock', t)
             if not self._is_running:
                 break
             time.sleep(1)
@@ -1265,13 +1284,6 @@ if __name__ == '__main__':
     continue_running = True
     cp = None
 
-    '''    
-    try:
-        timer.start()  # Start the timer thread
-        time.sleep(10)  # Let it run for 10 seconds
-    finally:
-        timer.stop()  # Stop the timer thread
-    '''
 
     while continue_running:
         # Enter the command loop, handling Exceptions that break it. Some Exceptions

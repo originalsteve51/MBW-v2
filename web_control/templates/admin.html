@@ -71,7 +71,7 @@ h3 {
                 <!-- <p>Invalid login flags: {{invalid_login}}</p> --> 
                 <p>Players Locked from Joining: {{lock_flag}}</p>
                 <p id="tappedStates"></p>
-            <!-- <button class="btn btn-primary" style="margin: 10px" id="addToInactiveList">Add to Inactive Player List</button> -->   
+            <button class="btn btn-primary" style="margin: 10px" id="addToActiveList">Add to Active Player List</button>   
             <button class="btn btn-warning" style="margin: 10px" id="lockPlayerToggle">Lock/Unlock the Game</button>    
             <button class="btn btn-danger" style="margin: 10px" id="signOffAll">Sign Off All Players</button>
         </div>
@@ -84,8 +84,8 @@ h3 {
             const signOffAllButton = document.getElementById('signOffAll');
             signOffAllButton.addEventListener('click', signOffAllAction);
 
-            //const addInactiveButton = document.getElementById('addToInactiveList');
-            //addInactiveButton.addEventListener('click', addInactiveAction);
+            const addActiveButton = document.getElementById('addToActiveList');
+            addActiveButton.addEventListener('click', addActiveAction);
 
             const lockGameButton = document.getElementById('lockPlayerToggle');
             lockGameButton.addEventListener('click', lockGameAction);
@@ -104,6 +104,11 @@ function signOffAllAction()
 function lockGameAction()
 {
     syncJsonGetRequest(host_url_main+'/lockGame');
+}
+
+function addActiveAction()
+{
+    syncJsonGetRequest(host_url_main+'/addActivePlayer');
 }
 
 function syncJsonGetRequest(url) 

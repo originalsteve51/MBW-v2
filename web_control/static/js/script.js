@@ -131,7 +131,7 @@ async function updateStops()
   {
     stopButton.style.display = 'block';
     winnerButton.style.display = 'block';
-    votesRequired.textContent = `Votes needed to skip to next song: ${result.votes_required}`;
+    votesRequired.textContent = `Votes needed to skip to next song after ${result.song_timeout} seconds: ${result.votes_required}`;
   }
   else if (result.votes_required == 0)
   {

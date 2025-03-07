@@ -26,6 +26,7 @@ songs = []
 cards = {}
 votes_required = None
 number_of_players = 0
+song_timeout = 0
 refresh_screen = []
 tapped_states_by_user = {}
 game_selections_by_card = {}
@@ -145,27 +146,18 @@ def release_player_id():
                             run_on_host=run_on_host, 
                             using_port=using_port)
     
-@app.route('/addInactivePlayer', methods=['GET'])
-def add_inactive_player():
+@app.route('/addActivePlayer', methods=['GET'])
+def add_active_player():
     global inactive_player_ids
-    global reset_player_storage  
-    global invalid_login
-
+    global active_player_ids
+    
     try:
-        new_player_id = max(inactive_player_ids)+1
+        add_player_id = min(inactive_player_ids)
     except ValueError:
-        # If there are no more inactive player ids, 
-        # base the new id on the largest active player id
-        new_player_id = max(active_player_ids)+1
-
-        # Also need to grow the invalid_login and reset_player_storage lists
-        invalid_login.append(True)
-        reset_player_storage.append(False)
-
-    inactive_player_ids.add(new_player_id)
-
-    # Make sure validity flags stay in sync
-    update_validity_flags()    
+        pass
+    
+    active_player_ids.add(add_player_id)
+    inactive_player_ids.remove(add_player_id)
 
     return redirect(url_for('admin'))
 
@@ -329,8 +321,7 @@ def game_misc_data():
     for _ in range(number_of_players):
         refresh_screen.append(refresh_flag)
 
-    print(f'Number of players is {str(number_of_players)}')
-
+    
     # Respond to the client
     return jsonify({"status": "success", "received": data})
 
@@ -548,11 +539,15 @@ def card_load():
 @app.route('/set_votes_required', methods=['POST'])
 def set_votes_required():
     global votes_required
+    global song_timeout
+    
     if request.method == 'POST':
         json_string = request.get_json()
         data = json.loads(json_string)
         print("Received votes_required data:", data)
         votes_required = data["votes_required"]
+        song_timeout = int(data['song_timeout'])
+    
         return jsonify({'votes_required': 'OK'})    
 
 
@@ -584,10 +579,12 @@ def add_stop_request():
             print('not recording a repeated request')
         return jsonify({'stoprequests': stop_requests})
 
+
 @app.route('/stopdata', methods=['GET', 'POST'])
 def get_stop_data():
     return jsonify({'stoprequests': stop_requests, 
-                    'votes_required': votes_required, 
+                    'votes_required': votes_required,
+                    'song_timeout': song_timeout, 
                     'refresh_screen': refresh_screen})
 
 @app.route('/submit', methods=['POST'])
