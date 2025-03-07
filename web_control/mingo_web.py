@@ -36,6 +36,10 @@ initial_tapped_states = "[false,false,false,false,false,false,false,false,false,
 win_claims = []
 playlist_name = None
 
+# List that is polled by cards...whenever it has ids they are
+# pulled and removed from the session of the caller
+sign_off_all_ids = []
+
 
 # The tapped/untapped state of a player's game is kept in JavaScript persistent storage
 # on the browser. This allows state to persist between screen refreshes in the case where
@@ -49,7 +53,8 @@ playlist_name = None
 # determines whether to use saved state or to wipe the board (and the state) to its starting
 # untapped status.
 active_player_ids = set()
-inactive_player_ids = set([0])
+inactive_player_ids = set([0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29])
+# inactive_player_ids = set([0])
 reset_player_storage = [False for _ in range(len(inactive_player_ids))]
 invalid_login = [True for _ in range(len(inactive_player_ids))]
 
@@ -187,13 +192,14 @@ def card():
 
     try:
         card_number = session['player_id']
+        
         if invalid_login[card_number]:
             session.pop('player_id', None)
             return key_error(None)
-
+        
         reset_storage = reset_player_storage[card_number]
         reset_player_storage[card_number] = False
-
+        
         try:
             titles = cards[str(card_number)]
         except KeyError:
@@ -370,10 +376,15 @@ def sign_off_all():
     global invalid_login
     global tapped_states_by_user
     global game_selections_by_card
+    global sign_off_all_ids
 
     reset_player_storage = [True for _ in range(len(reset_player_storage))]
     invalid_login = [True for _ in range(len(invalid_login))]
     
+
+    # Load list that is polled by card pages, these ids are
+    # removed from each card session
+    sign_off_all_ids = [an_id for an_id in active_player_ids]
 
     for _ in range (len(active_player_ids)):
         player_id = active_player_ids.pop()
@@ -381,7 +392,8 @@ def sign_off_all():
 
     tapped_states_by_user.clear()
     game_selections_by_card.clear()
-    print('After clearing game selections =========> ', game_selections_by_card)
+    cards.clear()
+    
 
     return redirect(url_for('admin'))
 
@@ -395,55 +407,53 @@ def join_game():
     global inactive_player_ids
     global invalid_login
     remove_from_active = -1
-    if not lock_flag:
+    if not lock_flag:        
         if 'player_id' in session:
             # This user already has a player id. Handle an attempt to join again
             # by starting the player over with a new id. Return the current id to
             # the pool of available ids.
             player_id = session['player_id']
             session.pop('player_id', None)
-            # inactive_player_ids.add(player_id)
-            # print('\n============> in session', player_id)
-            '''
-            try:
-                active_player_ids.remove(player_id)
-                print('\n============> removed from active', player_id)
-            except KeyError:
-                print('\n============> KeyError trying to remove',player_id)
-                pass
-            '''
-
+            print('\n============> /join removed from session', player_id)
             remove_from_active = player_id
+            try:
+                active_player_ids.remove(remove_from_active)
+            except KeyError:
+                print('\n========> /join KeyError', remove_from_active)
+            inactive_player_ids.add(remove_from_active)
 
-        try:
+            # To remove the id from the session we have to return a page to
+            # the browser. This is because the session is held on the browser,
+            # so the removal of the player_id from the session requires a
+            # response after popping the player_id on the server.
+            return render_template('released.html',
+                        player_id=remove_from_active,
+                        run_on_host=run_on_host, 
+                        using_port=using_port)
+
+        if len(cards) == 0:
+            return render_template('game_not_ready.html',
+                                player_id='not assigned yet.', 
+                                run_on_host=run_on_host, 
+                                using_port=using_port)
+
+        # We get here only when the player_id is not in the session. So we
+        # start by picking an inactive id, putting it in the session, and activating it.
+        if len(inactive_player_ids)>0:
             new_player_id = min(inactive_player_ids)
-            # print('\n============> new_player_id', new_player_id)
-        except ValueError:
-            # If we use up all the pre-allocated player ids, grow by one and carry on.
-            # print('\n============> ValueError trying to get from inactive_player_ids')
+            inactive_player_ids.remove(new_player_id)
+            print('\n=========> /join activated', new_player_id)
+        else:
             new_player_id = max(active_player_ids)+1
             active_player_ids.add(new_player_id)
-            # Also need to grow the invalid_login and reset_player_storage lists
             invalid_login.append(False)
             reset_player_storage.append(False)
+            print('\n=========> /join made new player_id', new_player_id)
+                
         session['player_id'] = new_player_id
-        print('\n============> added to session', new_player_id)
-
-        try:
-            inactive_player_ids.remove(new_player_id)
-            print('\n============> removed from inactive_player_ids', new_player_id)
-        except KeyError:
-            print('\n============> KeyError trying to remove from inactive_player_ids:',new_player_id)
-            pass
+        print('\n============> /join added to session', new_player_id)
 
         update_validity_flags()
-
-        try:
-            if remove_from_active != -1:
-                active_player_ids.remove(remove_from_active)
-                inactive_player_ids.add(remove_from_active)
-        except KeyError:
-            pass
     
         return activate_player(new_player_id)
         
@@ -487,6 +497,16 @@ def activate_player(player_id):
                                 player_id=player_id, 
                                 run_on_host=run_on_host, 
                                 using_port=using_port)
+
+
+@app.route('/cards_clear', methods=['POST'])
+def cards_clear():
+    # global cards
+    global songs 
+    print('=============>>> clearing songs')
+    # cards.clear()
+    songs.clear()
+    return jsonify()
 
 
 @app.route('/card_load', methods=['POST'])

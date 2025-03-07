@@ -55,6 +55,10 @@ save_path = './.cards.html'
 input_file = './.mingo_input.csv'
 current_dir = os.getcwd()
 game_state_pathname = './.game_state.bin'
+song_timeout = 0
+
+track_timer = None
+
 
 
 
@@ -679,6 +683,7 @@ class GameMonitor():
     def __init__(self):
         self.played_track_names = list()
         self.num_total_tracks = 0
+        
 
     def add_to_played_tracks(self, track_name):
         self.played_track_names.append(track_name)
@@ -730,6 +735,7 @@ print('Web controller url: ', web_controller_url)
 # web_controller_url = 'http://svpserver5.ddns.net:8080'
 # web_controller_url = 'http://localhost:8080'
 class WebMonitor():
+    global track_timer
     def __init__(self, cmdprocessor, trigger_vote_count):
         self._running = False
         self._thread = None
@@ -781,12 +787,18 @@ class WebMonitor():
                 # self._cmdprocessor.do_pause(self._cmdprocessor)
                 self._cmdprocessor.do_view(card_to_check)
             
-            # print(stop_count)
-            if (self._voting_allowed and stop_count>=self._trigger_vote_count):
+            # print('webmonitor stop_count', stop_count)
+            if track_timer:
+                print('track_timer is_running', track_timer.is_running())
+
+            if (self._voting_allowed and \
+                stop_count>=self._trigger_vote_count and \
+                track_timer and \
+                not track_timer.is_running()):
+                
                 requests.get(web_controller_url+'/clear')
                 self._cmdprocessor.do_nexttrack(self._cmdprocessor)
             time.sleep(1)
-
 
 
 
@@ -821,6 +833,18 @@ class CommandProcessor(cmd.Cmd):
         self.do_makegame(options)
         self.do_webload(None)
 
+    def do_timeset(self, seconds):
+        global song_timeout
+        try:
+            if seconds and int(seconds) >= 0:
+                song_timeout = int(seconds)
+                print(f'Songs will play at least {song_timeout} seconds.')
+            else:
+                print(f'Song minimum play time set to {song_timeout} seconds.')
+        except ValueError:
+            print('Try again, you must enter a non-negative integer timeout value.')
+
+
 
 
     def do_webload(self, _):
@@ -840,6 +864,12 @@ class CommandProcessor(cmd.Cmd):
             print('There is not an active game. Create one using "makegame" and try again.')  
 
     def do_webunload(self, _):
+        requests.post(web_controller_url+'/cards_clear')
+        
+        requests.post(web_controller_url+'/signOffAll')
+        
+
+        '''
         if self.active_game:
             print(f'Unloading {self.active_game.n_cards} cards made from web controller')
 
@@ -857,6 +887,7 @@ class CommandProcessor(cmd.Cmd):
                                 json=json.dumps(misc_data))
         else:
             print('There is not an active game. Create one using "makegame" and try again.')  
+        '''
 
     def do_auto(self, next_trigger_votes):
             self.auto_cmd = f':auto {next_trigger_votes})'
@@ -1003,8 +1034,16 @@ If no number is specified, all cards are displayed."""
            print('There is not an active game. Create one using "'"makegame"'" and try again.')  
 
     def do_nexttrack(self, _):
+        global track_timer
         """Play a randomly selected track from the active Mingo game."""
         if self.active_game:
+            if track_timer:
+                # print('stopping previous timer thread')
+                track_timer.stop()
+
+            track_timer = TimerThread()
+            track_timer.start()
+        
             self.active_game.play_next_track()
             self.active_game.write_game_state()
             clear_web_votes(self)
@@ -1178,6 +1217,44 @@ def clear_web_votes(cmd_processor):
         # Reset the number of votes to skip to zero because a new song is playing.
         requests.get(web_controller_url+'/clear')
 
+class TimerThread:
+    def __init__(self):
+        """Initialize the TimerThread.
+        
+        Args:
+        """
+        self.interval = song_timeout
+        self._is_running = False
+        self._thread = None
+    def _run(self):
+        # print(f'Timer started for {self.interval} seconds')
+        for t in range(self.interval):
+            # print('tick-tock')
+            if not self._is_running:
+                break
+            time.sleep(1)
+        try:
+            self.stop()
+        except RuntimeError:
+            pass
+        print('Timer completed')
+            
+    def start(self):
+        """Start the timer thread."""
+        # print('---------------------- start')
+        if not self._is_running:
+            self._is_running = True
+            self._thread = threading.Thread(target=self._run)
+            self._thread.start()
+    def stop(self):
+        """Stop the timer thread."""
+        self._is_running = False
+        if self._thread is not None:
+            self._thread.join()  # Wait for the thread to finish
+    def is_running(self):
+        """Check if the timer thread is running."""
+        return self._is_running
+
 
 
 
@@ -1187,6 +1264,15 @@ def clear_web_votes(cmd_processor):
 if __name__ == '__main__':
     continue_running = True
     cp = None
+
+    '''    
+    try:
+        timer.start()  # Start the timer thread
+        time.sleep(10)  # Let it run for 10 seconds
+    finally:
+        timer.stop()  # Stop the timer thread
+    '''
+
     while continue_running:
         # Enter the command loop, handling Exceptions that break it. Some Exceptions
         # can be handled, like losing the network. We give the user a chance

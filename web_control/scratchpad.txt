@@ -152,3 +152,68 @@ h3 {
    - Using the `display: flex` property on the `.grid-wrapper`, we align the two grids horizontally and added spacing to separate them visually.
 ### Result
 With these changes, each `gridWrapper` will now neatly contain two grids placed side by side, complete with titles above them. The layout is organized, and the grids will function as specified, allowing interactivity and color changes as before.
+
+
+
+
+
+
+
+        if 'player_id' in session:
+            # This user already has a player id. Handle an attempt to join again
+            # by starting the player over with a new id. Return the current id to
+            # the pool of available ids.
+            player_id = session['player_id']
+            session.pop('player_id', None)
+            print('\n============> /join removed from session', player_id)
+            remove_from_active = player_id
+            try:
+                active_player_ids.remove(remove_from_active)
+                
+            except KeyError:
+                print('\n========> /join KeyError', remove_from_active)
+            inactive_player_ids.add(remove_from_active)
+
+        try:
+            if len(inactive_player_ids)>0:
+                new_player_id = min(inactive_player_ids)
+                inactive_player_ids.remove(new_player_id)
+                print('\n=========> /join activating', new_player_id)
+            else:
+                new_player_id = max(active_player_ids)+1
+                active_player_ids.add(new_player_id)
+                invalid_login.append(False)
+                reset_player_storage.append(False)
+                print('\n=========> /join made new player_id', new_player_id)
+                
+            
+            # print('\n============> new_player_id', new_player_id)
+        except ValueError:
+            # If we use up all the pre-allocated player ids, grow by one and carry on.
+            print('\n============> /join ValueError trying to get from inactive_player_ids')
+            new_player_id = max(active_player_ids)+1
+            active_player_ids.add(new_player_id)
+            # Also need to grow the invalid_login and reset_player_storage lists
+            invalid_login.append(False)
+            reset_player_storage.append(False)
+        session['player_id'] = new_player_id
+        print('\n============> /join added to session', new_player_id)
+
+        '''
+        try:
+            inactive_player_ids.remove(new_player_id)
+            print('\n============> removed from inactive_player_ids', new_player_id)
+        except KeyError:
+            print('\n============> KeyError trying to remove from inactive_player_ids:',new_player_id)
+            pass
+        '''
+        update_validity_flags()
+
+        '''
+        try:
+            if remove_from_active != -1:
+                active_player_ids.remove(remove_from_active)
+                inactive_player_ids.add(remove_from_active)
+        except KeyError:
+            pass
+        '''

@@ -1,0 +1,11 @@
+procedure.txt
+
+Cold-start...with player list seeded with 35 ids
+
+1. Join three players
+
+2. Lock
+
+3. newgame 9 3
+
+4. Tell players to proceed

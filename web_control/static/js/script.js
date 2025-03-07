@@ -240,5 +240,5 @@ stopButton.addEventListener('click', postStopRequest);
 
 
 // update stop requests every specified number of msec
-setInterval(updateStops, 10000); // update_interval_msec);
+setInterval(updateStops, 1000); // update_interval_msec);
 
