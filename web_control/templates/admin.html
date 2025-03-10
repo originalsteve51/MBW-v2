@@ -67,13 +67,16 @@ h3 {
        
             <h3>Player Status</h3>
                 <p>Active Player IDs: {{active_player_ids}}</p>
+                <p>Offline Player IDs: {{offline_player_ids}}</p>
                 <p>Inactive Player IDs: {{inactive_player_ids}}</p>
-                <!-- <p>Invalid login flags: {{invalid_login}}</p> --> 
+                <p>Playlist Name: {{playlist_name}}</p>
+                <p>Number of cards loaded: {{card_count}}</p>
                 <p>Players Locked from Joining: {{lock_flag}}</p>
                 <p id="tappedStates"></p>
-            <button class="btn btn-primary" style="margin: 10px" id="addToActiveList">Add to Active Player List</button>   
-            <button class="btn btn-warning" style="margin: 10px" id="lockPlayerToggle">Lock/Unlock the Game</button>    
-            <button class="btn btn-danger" style="margin: 10px" id="signOffAll">Sign Off All Players</button>
+            <button class="btn btn-primary" style="margin: 10px" id="addToOfflineList">Add Offline Player</button>   
+            <button class="btn btn-warning" style="margin: 10px" id="lockPlayerToggle">Lock/Unlock</button>    
+            <button class="btn btn-danger" style="margin: 10px" id="signOffAll">Sign Off All</button>
+            <button class="btn btn-danger" style="margin: 10px" id="removeCards">Unload Cards</button>
         </div>
 
           <div id="gridsContainer"></div>
@@ -84,12 +87,15 @@ h3 {
             const signOffAllButton = document.getElementById('signOffAll');
             signOffAllButton.addEventListener('click', signOffAllAction);
 
-            const addActiveButton = document.getElementById('addToActiveList');
-            addActiveButton.addEventListener('click', addActiveAction);
+            const addOfflineButton = document.getElementById('addToOfflineList');
+            addOfflineButton.addEventListener('click', addOfflineAction);
 
             const lockGameButton = document.getElementById('lockPlayerToggle');
             lockGameButton.addEventListener('click', lockGameAction);
 
+            const unloadCardsButton = document.getElementById('removeCards');
+            unloadCardsButton.addEventListener('click', removeCardsAction);
+            
             const tappedStatesView = document.getElementById('tappedStates');
 
 // The Following function needs to be synchronous because we come back to this page
@@ -101,14 +107,19 @@ function signOffAllAction()
     syncJsonGetRequest(host_url_main+'/signOffAll');
 }
 
+function removeCardsAction()
+{
+    syncJsonGetRequest(host_url_main+'/unloadCards');
+}
+
 function lockGameAction()
 {
     syncJsonGetRequest(host_url_main+'/lockGame');
 }
 
-function addActiveAction()
+function addOfflineAction()
 {
-    syncJsonGetRequest(host_url_main+'/addActivePlayer');
+    syncJsonGetRequest(host_url_main+'/addOfflinePlayer');
 }
 
 function syncJsonGetRequest(url) 
@@ -217,13 +228,25 @@ GAME_PICKS = 2;
 
 window.onload = function() 
 {
-          
+    strOfflineIdSet = '{{offline_player_ids}}';       
     strActiveIdSet = '{{active_player_ids}}';
+
+    console.log('offline: ', strOfflineIdSet)
+    console.log('active: ', strActiveIdSet)
+    
+    /*
+    const trimmedOLStr = strOfflineIdSet.replace(/^{|}$/g, '');
+    const stringOLArray = trimmedOLStr.split(',');
+    const resultOLSet = new Set(stringOLArray.map(Number));
+    const sortedOLArray = Array.from(resultOLSet).sort((a, b) => a - b);
+    console.log('Offline sorted ids: ', sortedOLArray)
+    */
     
     const trimmedStr = strActiveIdSet.replace(/^{|}$/g, '');
     const stringArray = trimmedStr.split(',');
     const resultSet = new Set(stringArray.map(Number));
     const sortedArray = Array.from(resultSet).sort((a, b) => a - b);
+    console.log('Active sorted ids: ', sortedArray)
     
     
     // When we have data to build a grid, do so.

@@ -20,4 +20,4 @@ export MINGO_DEBUG_MODE="False"
 # command shell closes. It keeps running in the background because of trailing &.
 # Stdout and stderr streams are redirected to file web_ctl.log
 # I have configured this for invocation from rc.local at boot time.
-nohup python /home/stephenharding/my_code/python/mingowebcontrol/mingo_web.py > web_ctl.log 2>&1  &
+nohup python /home/stephenharding/my_code/python/mingowebcontrol/mingo_web.py > /home/stephenharding/my_code/python/mingowebcontrol/web_ctl.log 2>&1  &

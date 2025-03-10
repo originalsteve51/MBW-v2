@@ -1,7 +1,7 @@
 # on branch web-view-2
 
 from flask import Flask, render_template, render_template_string, request, jsonify, session, redirect, url_for, make_response
-import os, json
+import os, json, logging
 import time
 
 
@@ -54,6 +54,7 @@ sign_off_all_ids = []
 # determines whether to use saved state or to wipe the board (and the state) to its starting
 # untapped status.
 active_player_ids = set()
+offline_player_ids = set()
 inactive_player_ids = set([0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29])
 # inactive_player_ids = set([0])
 reset_player_storage = [False for _ in range(len(inactive_player_ids))]
@@ -120,13 +121,17 @@ def release_player_id():
     global inactive_player_ids
     global reset_player_storage
     
+    print('----------> In release_player_id()')
     release_id = 'Unknown Id'
     if 'player_id' in session:
         release_id = session['player_id']
+        print(f'-------------> {release_id} is in session')
         if release_id in active_player_ids:
             active_player_ids.remove(release_id)
             inactive_player_ids.add(release_id)
             tapped_states_by_user[release_id] = initial_tapped_states
+            print(f'-------------> {release_id} deactivated')
+        
     
             
         session.pop('player_id', None)
@@ -146,18 +151,18 @@ def release_player_id():
                             run_on_host=run_on_host, 
                             using_port=using_port)
     
-@app.route('/addActivePlayer', methods=['GET'])
-def add_active_player():
-    global inactive_player_ids
+@app.route('/addOfflinePlayer', methods=['GET'])
+def add_offline_player():
+    global offline_player_ids
     global active_player_ids
     
     try:
-        add_player_id = min(inactive_player_ids)
+        offline_player_id = min(inactive_player_ids)
     except ValueError:
         pass
     
-    active_player_ids.add(add_player_id)
-    inactive_player_ids.remove(add_player_id)
+    offline_player_ids.add(offline_player_id)
+    inactive_player_ids.remove(offline_player_id)
 
     return redirect(url_for('admin'))
 
@@ -300,7 +305,7 @@ def get_win_claims():
     global win_claims
     ret_json = jsonify({'win_claims': win_claims})
     # time.sleep(1)
-    print ("Returning win_claims: ", win_claims)
+    # print ("Returning win_claims: ", win_claims)
 
     # Clear the claims list
     win_claims.clear()
@@ -342,13 +347,18 @@ def clear_refresh():
 @app.route('/admin', methods=['GET'])
 def admin():
     global active_player_ids
+    global offline_player_ids
     global inactive_player_ids
     global invalid_login
+    global playlist_name
     
     response = make_response( render_template('admin.html',
                             lock_flag=lock_flag,
                             active_player_ids=active_player_ids,
+                            offline_player_ids=offline_player_ids,
                             inactive_player_ids=inactive_player_ids,
+                            playlist_name=playlist_name,
+                            card_count=len(cards),
                             invalid_login=invalid_login,
                             run_on_host=run_on_host, 
                             using_port=using_port))
@@ -359,6 +369,14 @@ def admin():
     response.headers['Expires'] = '0'
     return response
 
+@app.route('/unloadCards', methods=['GET','POST'])
+def unload_cards():
+    global cards
+    global playlist_name
+    cards.clear()
+    playlist_name = None
+    return redirect(url_for('admin'))
+
 @app.route('/signOffAll', methods=['GET','POST'])
 def sign_off_all():
     global active_player_ids
@@ -368,6 +386,7 @@ def sign_off_all():
     global tapped_states_by_user
     global game_selections_by_card
     global sign_off_all_ids
+    global offline_player_ids
 
     reset_player_storage = [True for _ in range(len(reset_player_storage))]
     invalid_login = [True for _ in range(len(invalid_login))]
@@ -381,9 +400,13 @@ def sign_off_all():
         player_id = active_player_ids.pop()
         inactive_player_ids.add(player_id)
 
+    for _ in range (len(offline_player_ids)):
+        player_id = offline_player_ids.pop()
+        inactive_player_ids.add(player_id)
+
     tapped_states_by_user.clear()
     game_selections_by_card.clear()
-    cards.clear()
+    # cards.clear()
     
 
     return redirect(url_for('admin'))
@@ -528,7 +551,7 @@ def card_load():
     
     cards.update({str(card_nbr): songs[len(songs)-1]})
 
-    print('\n\n\n========= Loaded: ',str(card_nbr),'\n',cards[str(card_nbr)])
+    # print('\n\n\n========= Loaded: ',str(card_nbr),'\n',cards[str(card_nbr)])
 
     if card_nbr == 1:
         card_debug()
@@ -630,5 +653,10 @@ def json_to_songs(json_string):
 """
 
 if __name__ == '__main__':
-    app.run(debug=True, threaded=True, port=using_port, host='0.0.0.0')
+
+    log = logging.getLogger('werkzeug')
+    log.setLevel(logging.WARNING)
+
+    app.logger.warning('=============> Log level set')
+    app.run(debug=False, threaded=True, port=using_port, host='0.0.0.0')
 #    app.run(debug=False, threaded=True, port=8080, host='127.0.0.1')
