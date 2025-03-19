@@ -56,6 +56,7 @@ input_file = './.mingo_input.csv'
 current_dir = os.getcwd()
 game_state_pathname = './.game_state.bin'
 song_timeout = 0
+wait_seconds = 0
 
 track_timer = None
 
@@ -736,6 +737,7 @@ print('Web controller url: ', web_controller_url)
 # web_controller_url = 'http://localhost:8080'
 class WebMonitor():
     global track_timer
+    global wait_seconds
     def __init__(self, cmdprocessor, trigger_vote_count):
         self._running = False
         self._thread = None
@@ -748,13 +750,16 @@ class WebMonitor():
             # clear all stop requests before running the monitor
             # otherwise 'old' stop requests can cause a track to start
             # and stop immediately
-            requests.get(web_controller_url+'/clear')
-            print('trying to start WebMonitor')
-            self._running = True
-            self._voting_allowed = True
-            self._thread = threading.Thread(target=self._run)
-            self._thread.start()
-            print('should be started')
+            try:
+                requests.get(web_controller_url+'/clear')
+                print('trying to start WebMonitor')
+                self._running = True
+                self._voting_allowed = True
+                self._thread = threading.Thread(target=self._run)
+                self._thread.start()
+                print('should be started')
+            except Exception as error:
+                print(f'{error} in WebMonitor start trying to access web controller')
 
     
     def stop(self):
@@ -770,35 +775,44 @@ class WebMonitor():
 
     def _run(self):
         while self._running:
-            # print('inside running')
-            if self._voting_allowed:
-                stop_count = int(requests.get(web_controller_url+'/get_stop_count').content)
-            else:
-                stop_count = 0
-            win_claims_json = requests.get(web_controller_url+'/win_claims')
-            win_claims = win_claims_json.json()["win_claims"]
-            # print(f"Claims : {win_claims}, length is {str(len(win_claims))}")
-            claim_idx = 0
-            while len(win_claims) > 0:
-                card_to_check = win_claims[claim_idx]
-                # print(f"Processing claim for card {win_claims[claim_idx]}")
-                win_claims.remove(win_claims[claim_idx])
-                # print(f"There are {len(win_claims)} items in claim list")
-                # self._cmdprocessor.do_pause(self._cmdprocessor)
-                self._cmdprocessor.do_view(card_to_check)
-            
-            # print('webmonitor stop_count', stop_count)
-            # if track_timer:
-            #    print('track_timer is_running', track_timer.is_running())
-
-            if (self._voting_allowed and \
-                stop_count>=self._trigger_vote_count and \
-                track_timer and \
-                not track_timer.is_running()):
+            try:
+                # print('inside running')
+                if self._voting_allowed:
+                    stop_count = int(requests.get(web_controller_url+'/get_stop_count').content)
+                else:
+                    stop_count = 0
+                win_claims_json = requests.get(web_controller_url+'/win_claims')
+                win_claims = win_claims_json.json()["win_claims"]
+                # print(f"Claims : {win_claims}, length is {str(len(win_claims))}")
+                claim_idx = 0
+                while len(win_claims) > 0:
+                    card_to_check = win_claims[claim_idx]
+                    # print(f"Processing claim for card {win_claims[claim_idx]}")
+                    win_claims.remove(win_claims[claim_idx])
+                    # print(f"There are {len(win_claims)} items in claim list")
+                    # self._cmdprocessor.do_pause(self._cmdprocessor)
+                    self._cmdprocessor.do_view(card_to_check)
                 
-                requests.get(web_controller_url+'/clear')
-                self._cmdprocessor.do_nexttrack(self._cmdprocessor)
-            time.sleep(1)
+                # print('webmonitor stop_count', stop_count)
+                # if track_timer:
+                #    print('track_timer is_running', track_timer.is_running())
+
+                if (self._voting_allowed and \
+                    stop_count>=self._trigger_vote_count and \
+                    track_timer and \
+                    not track_timer.is_running()):
+                    
+                    requests.get(web_controller_url+'/clear')
+
+                    self._cmdprocessor.do_pause(self._cmdprocessor)
+
+                    print(f'Waiting {wait_seconds} seconds...')
+                    time.sleep(wait_seconds)
+
+                    self._cmdprocessor.do_nexttrack(self._cmdprocessor)
+                time.sleep(1)
+            except Exception as error:
+                print(f'{error} in WebMonitor trying to access web controller')
 
 
 
@@ -826,19 +840,44 @@ class CommandProcessor(cmd.Cmd):
         self.web_monitor = None 
 
     def do_countplayers(self, _):
-        player_count = int(requests.get(web_controller_url+'/get_player_count').content)
-        print(f'There are {player_count} active players.')
+        """Query the web interface to determine how many players have cards assigned to them."""
+        try:
+            player_count = int(requests.get(web_controller_url+'/get_player_count').content)
+            print(f'There are {player_count} active players.')
+        except Exception as error:
+            print(f'{error} in WebMonitor trying to access web controller')
 
     def do_newgame(self, options):
+        """Specify a Playlist number and a number of cards to generate. After generating cards, they are sent to the web interface for players to use."""
         self.do_makegame(options)
         self.do_webload(None)
 
-    def do_timeset(self, seconds):
+    def do_waitset(self, seconds):
         global song_timeout
+        global wait_seconds
+        try:
+            if not seconds:
+                print(f'Time between song aotoplays is {wait_seconds} seconds')
+            if seconds and int(seconds) >= 0:
+                wait_seconds = int(seconds)
+                self.auto_cmd = f':auto {self.web_monitor._trigger_vote_count}, timeset: {song_timeout}, waitset: {wait_seconds})'
+                if self.active_game:
+                    self.prompt = f'\033[97m({self.active_game.playlist_name}'+self.auto_cmd+self.end_highlight
+                else:
+                    self.prompt = f'\033[97m(No Active Game'+self.auto_cmd+self.end_highlight
+
+        except ValueError:
+            print('Try again, you must enter a non-negative integer wait between songs value.')
+
+
+    def do_timeset(self, seconds):
+        """Set the time in seconds for a song to play before votes are counted to move to the next song."""
+        global song_timeout
+        global wait_seconds
         try:
             if seconds and int(seconds) >= 0:
                 song_timeout = int(seconds)
-                self.auto_cmd = f':auto {self.web_monitor._trigger_vote_count}, {song_timeout})'
+                self.auto_cmd = f':auto {self.web_monitor._trigger_vote_count}, timeset: {song_timeout}, waitset: {wait_seconds})'
                 if self.active_game:
                     self.prompt = f'\033[97m({self.active_game.playlist_name}'+self.auto_cmd+self.end_highlight
                 else:
@@ -865,6 +904,7 @@ class CommandProcessor(cmd.Cmd):
 
 
     def do_webload(self, _):
+        """Load the cards in the active game to the web interface so they can be assigned to players."""
         if self.active_game:
             print(f'Loading {self.active_game.n_cards} cards made from {self.active_game.playlist_name} to web controller')
             for card_nbr in range(self.active_game.n_cards):
@@ -881,7 +921,8 @@ class CommandProcessor(cmd.Cmd):
             print('There is not an active game. Create one using "makegame" and try again.')  
 
     def do_webunload(self, _):
-        requests.post(web_controller_url+'/cards_clear')
+        """Clear the cards that are loaded in the web interface and signoff all players."""
+        requests.post(web_controller_url+'/unloadCards')
         
         requests.post(web_controller_url+'/signOffAll')
         
@@ -907,7 +948,10 @@ class CommandProcessor(cmd.Cmd):
         '''
 
     def do_auto(self, next_trigger_votes):
-            self.auto_cmd = f':auto {next_trigger_votes}, {song_timeout})'
+            global song_timeout
+            global wait_seconds
+            """Start an automatic mode that is controlled by player votes. Provide a positive integer for number of votes to trigger next song. Provide 0 to stop voting and enter manual mode."""
+            self.auto_cmd = f':auto {next_trigger_votes}, timeset: {song_timeout}, waitset: {wait_seconds})'
             if self.active_game:
                 self.prompt = f'\033[97m({self.active_game.playlist_name}'+self.auto_cmd+self.end_highlight
             else:
@@ -993,7 +1037,7 @@ or issue the ''continuegame'' command to restart an old game.')
         print(self.pl.sp.me()['display_name'])
 
     def do_makegame(self, options):
-        """Use the currently active playlist to generate a specified number of Mingo cards."""
+        """Specify a Playlist by number and a optionally a number of Mingo cards (default is 10) to generate from it."""
         num_cards = 10
         playlist_num = -1
         if not options:
@@ -1008,7 +1052,10 @@ or issue the ''continuegame'' command to restart an old game.')
                 num_cards = int(arg_list[1])
             
             self.pl.process_playlist(playlist_num, True)
-            requests.get(web_controller_url+'/signOffAll')
+            try:
+                requests.get(web_controller_url+'/signOffAll')
+            except Exception as error:
+                print(f'{error} in makegame trying to access web controller')
 
         try:
             self.active_game = Game(num_cards, self.sp, self.player)
@@ -1021,7 +1068,7 @@ or issue the ''continuegame'' command to restart an old game.')
             print('\nYou can use the "view" command to display and print the Mingo cards for this game.')
             print('You can begin playing tracks in random order by using the "nexttrack" command for each track.')
         except Exception as error:
-            print(error)
+            print(f'{error} in makegame')
 
     def do_continuegame(self, _):
         """If you stopped playing a game and exited this program, its state is \
@@ -1041,6 +1088,7 @@ saved. Use this command to resume playing a stopped game from when you stopped i
 If no number is specified, all cards are displayed."""
         print("viewing card: ", card_num)
         if self.active_game:
+            self.do_pause(None)
             self.active_game.view_in_browser(card_num)
         else:
             print('There is not an active game. Create one using "makegame" and try again.')  
@@ -1060,7 +1108,7 @@ If no number is specified, all cards are displayed."""
                 # print('stopping previous timer thread')
                 track_timer.stop()
 
-            track_timer = TimerThread()
+            track_timer = TimerThread(song_timeout)
             track_timer.start()
         
             self.active_game.play_next_track()
@@ -1080,7 +1128,7 @@ If no number is specified, all cards are displayed."""
             print('There is not an active game.')
     
 
-    def do_pause(self, _):
+    def do_pause(self,_):
         """Pause the song that is currently playing. Use resume to resume playing."""
         if self.active_game:
             # print ("before pause currently playing: ", self.active_game.currently_playing())
@@ -1150,8 +1198,8 @@ If no number is specified, all cards are displayed."""
 
     def do_save(self, save_number):
         """
-        Save a game. You must supply a file name suffix (an integer is nice but
-        not required) that will be used when loading this game.
+        Save a game. You must supply a file name integer
+        that will be used when loading this game.
         """
         if not save_number:
             print('Error: You must supply an argument with the save number to use')
@@ -1160,8 +1208,8 @@ If no number is specified, all cards are displayed."""
 
     def do_load(self, load_number):
         """
-        Load a previously saved game. You must supply a file name suffix (an integer is nice but
-        not required) that was used when a game was saved.
+        Load a previously saved game. You must supply the file name integer
+        that was used when a game was saved.
         """
         if not load_number:
             print('Error: You must supply an argument with the load number for the game to load')
@@ -1234,15 +1282,18 @@ def clear_web_votes(cmd_processor):
         # We are monitoring user votes to skip but we have told the game to
         # start a new track.
         # Reset the number of votes to skip to zero because a new song is playing.
-        requests.get(web_controller_url+'/clear')
+        try:
+            requests.get(web_controller_url+'/clear')
+        except Exception as error:
+            print(f'{error} in clear_web_votes trying to access web controller')
 
 class TimerThread:
-    def __init__(self):
+    def __init__(self, interval_sec):
         """Initialize the TimerThread.
         
         Args:
         """
-        self.interval = song_timeout
+        self.interval = interval_sec # song_timeout
         self._is_running = False
         self._thread = None
     def _run(self):

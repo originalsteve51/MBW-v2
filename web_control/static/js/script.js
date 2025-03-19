@@ -131,7 +131,7 @@ async function updateStops()
   {
     stopButton.style.display = 'block';
     winnerButton.style.display = 'block';
-    votesRequired.textContent = `Votes needed to skip to next song after ${result.song_timeout} seconds: ${result.votes_required}`;
+    votesRequired.textContent = `Votes to skip after ${result.song_timeout} seconds: ${result.stoprequests.length} of ${result.votes_required}`;
   }
   else if (result.votes_required == 0)
   {
@@ -157,8 +157,10 @@ async function updateStops()
 
   }
 
+  /**
   if (result.votes_required > 0) 
   {
+    
     if (result.stoprequests.length!=0)
     {  
       // responseMessage.textContent = `IDs that have voted: ${result.stoprequests}`;
@@ -169,7 +171,8 @@ async function updateStops()
       responseMessage.textContent = 'No one has voted to skip this song so far'; 
     }
   }
-
+  **/
+  
   console.log('Refresh flags: ',result.refresh_screen[cardNumber])
 
   if (result.refresh_screen[cardNumber]==true)

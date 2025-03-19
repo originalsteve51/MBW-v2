@@ -162,7 +162,12 @@ def add_offline_player():
         pass
     
     offline_player_ids.add(offline_player_id)
+    active_player_ids.add(offline_player_id)
     inactive_player_ids.remove(offline_player_id)
+
+    update_validity_flags()
+    activate_player(offline_player_id, True)
+
 
     return redirect(url_for('admin'))
 
@@ -202,7 +207,7 @@ def card():
         except KeyError:
             return key_error(None) 
 
-        print('========> ', playlist_name)
+        # print('========> ', playlist_name)
         return render_template('card_view.html', 
                                 card_number=card_number, 
                                 titles=titles,
@@ -244,7 +249,7 @@ def save_tapped_states():
 
     tapped_states_by_user[session['player_id']] = tapped_states
     
-    print('================= tapped states ', tapped_states_by_user)
+    # print('================= tapped states ', tapped_states_by_user)
 
     return jsonify()
 
@@ -290,14 +295,14 @@ def claimWinner():
     global win_claims
     data = request.get_json()
     card_claiming_win = data["card_claiming_win"]
-    print("winner claim received from card number: ", card_claiming_win)
+    # print("winner claim received from card number: ", card_claiming_win)
     # Add card claiming win to win_claims, the list of cards that need to be checked 
     # by the game engine.
     # The game engine polls this list to see if a check should be made
     # Duplicates are not allowed...
     if card_claiming_win not in win_claims:
         win_claims.append(card_claiming_win)
-        print('win_claims: ', win_claims)
+        # print('win_claims: ', win_claims)
     return jsonify({"status": "success", "received": card_claiming_win})
 
 @app.route('/win_claims', methods=['GET', 'POST'])
@@ -319,7 +324,7 @@ def game_misc_data():
     json_string = request.get_json()
     data = json.loads(json_string)
     playlist_name = data["playlist_name"]
-    print(f'Loaded cards for {playlist_name}')
+    # print(f'Loaded cards for {playlist_name}')
     number_of_players = int(data["number_of_players"])
     refresh_flag = data["refresh_flag"]
     refresh_screen.clear()
@@ -334,9 +339,9 @@ def game_misc_data():
 def clear_refresh():
     global refresh_screen
     json_str = request.get_json()
-    print('==================================>>>> ', json_str)
+    # print('==================================>>>> ', json_str)
     # data = json.loads(json_str)
-    print('==================================>>>> ', json_str["player_nbr"])
+    # print('==================================>>>> ', json_str["player_nbr"])
     # print("clear_refresh: ", json_string)
     player_nbr = json_str["player_nbr"]
     refresh_screen[int(player_nbr)] = False
@@ -428,22 +433,24 @@ def join_game():
             # the pool of available ids.
             player_id = session['player_id']
             session.pop('player_id', None)
-            print('\n============> /join removed from session', player_id)
-            remove_from_active = player_id
-            try:
-                active_player_ids.remove(remove_from_active)
-            except KeyError:
-                print('\n========> /join KeyError', remove_from_active)
-            inactive_player_ids.add(remove_from_active)
+            print('\n============> /join removed id from session', player_id)
 
-            # To remove the id from the session we have to return a page to
-            # the browser. This is because the session is held on the browser,
-            # so the removal of the player_id from the session requires a
-            # response after popping the player_id on the server.
-            return render_template('released.html',
-                        player_id=remove_from_active,
-                        run_on_host=run_on_host, 
-                        using_port=using_port)
+            if player_id not in offline_player_ids:
+                remove_from_active = player_id
+                try:
+                    active_player_ids.remove(remove_from_active)
+                except KeyError:
+                    print('\n========> /join KeyError', remove_from_active)
+                inactive_player_ids.add(remove_from_active)
+
+                # To remove the id from the session we have to return a page to
+                # the browser. This is because the session is held on the browser,
+                # so the removal of the player_id from the session requires a
+                # response after popping the player_id on the server.
+                return render_template('released.html',
+                            player_id=remove_from_active,
+                            run_on_host=run_on_host, 
+                            using_port=using_port)
 
         if len(cards) == 0:
             return render_template('game_not_ready.html',
@@ -481,7 +488,7 @@ def join_game():
 
 
 
-def activate_player(player_id):        
+def activate_player(player_id, offline=False):        
     global active_player_ids
     global inactive_player_ids
     global invalid_login
@@ -504,20 +511,25 @@ def activate_player(player_id):
         inactive_player_ids.remove(player_id)
 
 
-    if len(cards) != 0:
-        return redirect(url_for('card'))
+    if not offline:
+        if len(cards) != 0:
+            return redirect(url_for('card'))
+        else:
+            return render_template('game_not_ready.html', 
+                                    player_id=player_id, 
+                                    run_on_host=run_on_host, 
+                                    using_port=using_port)
     else:
-        return render_template('game_not_ready.html', 
-                                player_id=player_id, 
-                                run_on_host=run_on_host, 
-                                using_port=using_port)
+        # Adding a player offline so let the caller handle the next
+        # screen display
+        pass
 
 
 @app.route('/cards_clear', methods=['POST'])
 def cards_clear():
     # global cards
     global songs 
-    print('=============>>> clearing songs')
+    # print('=============>>> clearing songs')
     # cards.clear()
     songs.clear()
     return jsonify()
@@ -539,14 +551,14 @@ def card_load():
 
     # Get the card number
     card_nbr = data["card_nbr"]
-    print("Loading card number", card_nbr)
+    # print("Loading card number", card_nbr)
 
     # Extract the list of song titles
     # Start with an empty list
     songs.append([])
     songs_temp = [song["title"] for song in data["songs"]]
     for song in songs_temp:
-        print('adding ', song, ' ', card_nbr)
+        # print('adding ', song, ' ', card_nbr)
         songs[len(songs)-1].append(song)
     
     cards.update({str(card_nbr): songs[len(songs)-1]})
@@ -567,7 +579,7 @@ def set_votes_required():
     if request.method == 'POST':
         json_string = request.get_json()
         data = json.loads(json_string)
-        print("Received votes_required data:", data)
+        # print("Received votes_required data:", data)
         votes_required = data["votes_required"]
         song_timeout = int(data['song_timeout'])
     
@@ -587,7 +599,7 @@ def clear_stop_requests():
 def check_status():
     if request.method == 'GET':
         player_id = session['player_id']
-        print('player id: ', player_id)
+        # print('player id: ', player_id)
         return render_template_string("""
             <h1>Player id: {{player_id}}</h1>
         """, player_id=player_id)        
@@ -599,7 +611,8 @@ def add_stop_request():
         if (session['player_id'] not in stop_requests):
             stop_requests.append(session['player_id'])
         else:
-            print('not recording a repeated request')
+            pass
+            # print('not recording a repeated request')
         return jsonify({'stoprequests': stop_requests})
 
 
@@ -632,31 +645,15 @@ def get_player_count():
 def card_debug():
     return render_template('timeout.html')
 
-"""
-def json_to_songs(json_string):
-    # Parse the JSON string into a Python dictionary
-    data = json.loads(json_string)
-
-    # Get the card number
-    card_nbr = data["card_nbr"]
-    print("Loading card number", card_nbr)
-
-    # Extract the list of song titles
-    songs_temp = [song["title"] for song in data["songs"]]
-    songs.clear()
-    for song in songs_temp:
-        songs.append(song)
-    
-    cards[str(card_nbr)] = songs;
-    print('\n\n\n========= Loaded: ',str(card_nbr),'\n',cards[str(card_nbr)])
-    return songs
-"""
 
 if __name__ == '__main__':
 
     log = logging.getLogger('werkzeug')
     log.setLevel(logging.WARNING)
+    debug_mode_bool = True
+    if debug_mode == 'False':
+        debug_mode_bool = False
 
     app.logger.warning('=============> Log level set')
-    app.run(debug=False, threaded=True, port=using_port, host='0.0.0.0')
+    app.run(debug=debug_mode_bool, threaded=True, port=using_port, host='0.0.0.0')
 #    app.run(debug=False, threaded=True, port=8080, host='127.0.0.1')

@@ -20,7 +20,7 @@
       background-color: #cfcfcf;
 
       text-align: center;
-      overflow: hidden; /* Prevent scrolling in landscape mode */
+      overflow: auto; /* hidden Prevents scrolling in landscape mode */
 
       /* Prevent text-selection in each of the main browsers */
       -webkit-user-select: none; /* Safari */
@@ -31,10 +31,15 @@
 
     .container {
           display: flex;
-          flex-direction: column;
+          flex-direction: column; /* column; */
           align-items: center;
         }
    
+    .containerh {
+          display: flex;
+          flex-direction: row; /* column; */
+          align-items: center;
+        }
     .matrix {
       display: grid;
       grid-template-columns: repeat(5, 1fr);
@@ -152,19 +157,21 @@
 
   <div class="container">
     <div class="container text-center mt-4">
-        <h4 class="mb-4">Music Bingo Card {{card_number}}</h4>
-        <h5 class="mb-4">{{playlist_name}}</h5>
+        <h5 class="mb-4">Music Bingo Cardx {{card_number}}, {{playlist_name}}</h5>
+        <!-- <h6 class="mb-4">{{playlist_name}}</h6> -->
         <p id ="votesRequired"/>
-        <p id="responseMessage"/>
+        <!-- <p id="responseMessage"/> -->
     </div>
 
-    <div class="container text-center mt-4">
+<!--    <div class="container text-center mt-4"> -->
+    <div class="containerh">
         <!-- Initially the Voting button is not visible. The auto command with a
              value of 1 or higher will cause it to appear so users can vote
              to skip to the next song -->
         <button class="btn btn-danger" style="margin: 10px; display: none;" id="stopButton">
             Vote to Skip to Next Song
         </button>
+        <button class="btn btn-primary" style="margin: 10px; display: none;" id="declareWin">Winner!</button>
     </div>
   </div>
 
@@ -191,8 +198,8 @@
 
 
     <!-- <button class="btn btn-warning btn-lg" style="color: black;margin: 10px" id="lockToggle">Lock</button> -->
-    <button class="btn btn-primary" style="margin: 10px; display: none;" id="declareWin">Winner!</button>
-    <button class="btn btn-warning" style="margin: 10px;" id="release_id">Release my Player ID</button>
+    <!-- <button class="btn btn-primary" style="margin: 10px; display: none;" id="declareWin">Winner!</button> -->
+    <!-- <button class="btn btn-warning" style="margin: 10px;" id="release_id">Release my Player ID</button> -->
   </div>
 
     
@@ -246,14 +253,6 @@
         console.log('Reset tapped array')
       }
 
-      // Debug: List states
-      /*
-      for (i=0; i<25; i++)
-      {
-        console.log(i);
-        console.log('tapped: '+tapped[i]);
-      }
-      */
     }
 
     let cardNumber = "{{card_number}}";
@@ -343,7 +342,7 @@
     // Prevent scrolling in landscape mode
     window.addEventListener('resize', function() {
         if (window.innerHeight < window.innerWidth) {
-            document.body.style.overflow = 'hidden'; // Prevent scrolling
+            document.body.style.overflow = 'auto'; // hidden Prevents scrolling
         }
     });
 
@@ -580,33 +579,22 @@ function showDialog() {
     });
 }
 
-/***
-document.getElementById('showDialog').addEventListener('click', async () => {
-    const result = await showDialog();
-    console.log('Dialog result:', result);
-});
-***/
-
 const releaseButton = document.getElementById('release_id');
 
-// releaseButton.addEventListener('click', releaseId);
 releaseButton.addEventListener('click', async () => {
-
-    if (localStorage.getItem('doNotAskAgain') !== 'true')
-    {
-        const result = await showDialog();
-        if (result.choice == 'Yes')
+        if (localStorage.getItem('doNotAskAgain') !== 'true')
+        {
+            const result = await showDialog();
+            if (result.choice == 'Yes')
+            {
+                releaseId();
+            }
+        }
+        else
         {
             releaseId();
         }
     }
-    else
-    {
-        releaseId();
-    }
-            
-
-}
 );
 
 function releaseId()
