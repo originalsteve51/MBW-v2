@@ -362,6 +362,8 @@ def admin():
                             active_player_ids=active_player_ids,
                             offline_player_ids=offline_player_ids,
                             inactive_player_ids=inactive_player_ids,
+                            stop_requests=stop_requests,
+                            votes_required=votes_required,
                             playlist_name=playlist_name,
                             card_count=len(cards),
                             invalid_login=invalid_login,

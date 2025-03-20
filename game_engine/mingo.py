@@ -849,6 +849,9 @@ class CommandProcessor(cmd.Cmd):
 
     def do_newgame(self, options):
         """Specify a Playlist number and a number of cards to generate. After generating cards, they are sent to the web interface for players to use."""
+
+        # Clear any votes that might be lingering from an earlier game
+        requests.get(web_controller_url+'/clear')
         self.do_makegame(options)
         self.do_webload(None)
 
@@ -958,9 +961,12 @@ class CommandProcessor(cmd.Cmd):
                 self.prompt = f'\033[97m(No Active Game'+self.auto_cmd+self.end_highlight
 
             if next_trigger_votes and int(next_trigger_votes) > 0:
-                # Non-zero voting is enabled. Tell the web monitor to watch for votes.
-                self.web_monitor.voting()
 
+                # Clear out any votes that might be hanging around.
+                requests.get(web_controller_url+'/clear')
+
+                # Non-zero voting is requested. Tell the web monitor to watch for votes.
+                self.web_monitor.voting()
 
                 # Only start the web monitor thread once (a singleton)
                 # If there are multiple monitor threads, songs will be skipped

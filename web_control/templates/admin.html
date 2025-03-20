@@ -69,6 +69,7 @@ h3 {
                 <p>Active Player IDs: {{active_player_ids}}</p>
                 <p>Offline Player IDs: {{offline_player_ids}}</p>
                 <p>Inactive Player IDs: {{inactive_player_ids}}</p>
+                <p>Voted to Stop: {{stop_requests}}, required: {{votes_required}}</p>
                 <p>Playlist Name: {{playlist_name}}</p>
                 <p>Number of cards loaded: {{card_count}}</p>
                 <p>Players Locked from Joining: {{lock_flag}}</p>
@@ -438,6 +439,32 @@ function forceRefresh() {
 }
 // Call the refresh function
 forceRefresh();  
+
+async function updateStops()
+{
+  // Prepare data to send
+  jsonData = 
+  {
+    text: ''
+  };
+  response = await fetch(host_url+'/stopdata', 
+                                {
+                                  method: 'POST',
+                                  headers: {
+                                    'Content-Type': 'application/json',
+                                    'Access-Control-Allow-Origin': '*',
+                                  },
+                                  body: JSON.stringify(jsonData),
+                                });
+
+  result = await response.json();
+
+  // result.votes_required
+  // result.stoprequests
+
+
+
+}
 
 
 

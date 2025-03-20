@@ -4,6 +4,7 @@ const submitButton = document.getElementById('submitButton');
 const stopButton = document.getElementById('stopButton');
 const responseMessage = document.getElementById('responseMessage');
 const votesRequired = document.getElementById('votesRequired');
+const refreshButton = document.getElementById('refreshWin');
 
 const host_url = host_url_main; // 'http://localhost:8080';
 const update_interval_msec = update_interval;
@@ -239,6 +240,8 @@ function syncJsonPostRequest(url, data) {
 // Add event listeners to the buttons
 // submitButton.addEventListener('click', postData);
 stopButton.addEventListener('click', postStopRequest);
+
+refreshButton.addEventListener('click', refreshWindow);
 
 
 
