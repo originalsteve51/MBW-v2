@@ -380,7 +380,9 @@ def admin():
 def unload_cards():
     global cards
     global playlist_name
+    global stop_requests
     cards.clear()
+    stop_requests.clear()
     playlist_name = None
     return redirect(url_for('admin'))
 
@@ -394,6 +396,9 @@ def sign_off_all():
     global game_selections_by_card
     global sign_off_all_ids
     global offline_player_ids
+    global stop_requests
+
+    stop_requests.clear()
 
     reset_player_storage = [True for _ in range(len(reset_player_storage))]
     invalid_login = [True for _ in range(len(invalid_login))]

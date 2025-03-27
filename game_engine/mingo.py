@@ -40,6 +40,7 @@ import time
 import requests
 
 import qrcode
+from datetime import datetime
 import json
 
 import spotipy
@@ -560,16 +561,19 @@ numbered 0 through {self.n_cards - 1}. Try again.')
 
 
 
-    def view_in_browser(self, card_num=None):
+    def view_in_browser(self, start_card=None, end_card=None):
         '''
         Renders a mingo card using html, saves the html to a file, and shows it in the default browser.
 
             parameters:
-                card_num: The index of a mingo card to render. If None, show all cards.
+                first_card_num: The index of a mingo card to render. If None, show all cards.
+                last_card_num: With the first card number, define a range of card numbers to show
 
             returns:
                 None
         '''
+
+        print(f'--------> {start_card}, {end_card}')
         try:
             with open(save_path, 'w') as f:
                 f.write("<html>")
@@ -620,7 +624,7 @@ numbered 0 through {self.n_cards - 1}. Try again.')
                 </head>
                 <body>
                 """)
-                if not card_num:
+                if not start_card:
                     for i in range(self.n_cards):
                         # Following prints one card per page. The css 'page' provides
                         # a page-break when printed. But this only actually works
@@ -638,15 +642,18 @@ numbered 0 through {self.n_cards - 1}. Try again.')
                         else:
                             f.write("<br class='space'/>")
                         """
-                else:
-                    card = self.get_card(int(card_num))
-                    f.write(f"<h3>{card.playlist_name}, Card number {card_num} </h3>")
+                elif not end_card:
+                    card = self.get_card(start_card)
+                    f.write(f"<h3>{card.playlist_name}, Card number {str(start_card)} </h3>")
                     card.as_html(f, False)
                     f.write("<br class='page'/>")
+                else:
+                    for i in range(start_card, end_card+1):
+                        card = self.get_card(i)
+                        f.write(f"<h3>{card.playlist_name}, Card number {i}  </h3>")
+                        card.as_html(f, False)
+                        f.write("<br class='page'/>")
 
-                    # For testing only...
-                    # card.as_array()
-                    # card.as_json(card_num)
 
                 f.write("\n")
 
@@ -776,7 +783,9 @@ class WebMonitor():
     def _run(self):
         while self._running:
             try:
-                # print('inside running')
+                # ts = get_formatted_timestamp()
+                # print(f'{ts}: WebMonitor running')
+
                 if self._voting_allowed:
                     stop_count = int(requests.get(web_controller_url+'/get_stop_count').content)
                 else:
@@ -810,9 +819,12 @@ class WebMonitor():
                     time.sleep(wait_seconds)
 
                     self._cmdprocessor.do_nexttrack(self._cmdprocessor)
+                
                 time.sleep(1)
             except Exception as error:
-                print(f'{error} in WebMonitor trying to access web controller')
+                ts = get_formatted_timestamp()
+                print(f'{ts}: {error} in WebMonitor')
+                # time.sleep(1)
 
 
 
@@ -843,7 +855,7 @@ class CommandProcessor(cmd.Cmd):
         """Query the web interface to determine how many players have cards assigned to them."""
         try:
             player_count = int(requests.get(web_controller_url+'/get_player_count').content)
-            print(f'There are {player_count} active players.')
+            print(f'The Web Controller reports that there is/are {player_count} active players.')
         except Exception as error:
             print(f'{error} in WebMonitor trying to access web controller')
 
@@ -856,6 +868,7 @@ class CommandProcessor(cmd.Cmd):
         self.do_webload(None)
 
     def do_waitset(self, seconds):
+        """Set the number of seconds to wait between songs during autoplay."""
         global song_timeout
         global wait_seconds
         try:
@@ -907,8 +920,11 @@ class CommandProcessor(cmd.Cmd):
 
 
     def do_webload(self, _):
-        """Load the cards in the active game to the web interface so they can be assigned to players."""
+        """Clear any pending votes and load the cards in the active game to the web interface so they can be assigned to players."""
         if self.active_game:
+            # Clear out any votes that might be hanging around.
+            requests.get(web_controller_url+'/clear')
+
             print(f'Loading {self.active_game.n_cards} cards made from {self.active_game.playlist_name} to web controller')
             for card_nbr in range(self.active_game.n_cards):
                 requests.post(web_controller_url+'/card_load',
@@ -926,99 +942,77 @@ class CommandProcessor(cmd.Cmd):
     def do_webunload(self, _):
         """Clear the cards that are loaded in the web interface and signoff all players."""
         requests.post(web_controller_url+'/unloadCards')
-        
         requests.post(web_controller_url+'/signOffAll')
         
-
-        '''
-        if self.active_game:
-            print(f'Unloading {self.active_game.n_cards} cards made from web controller')
-
-            # Make an empty card for each player
-            for card_nbr in range(self.active_game.n_cards):
-                empty_card = empty_card_json(card_nbr)
-                requests.post(web_controller_url+'/card_load',
-                                json=empty_card)
-
-            misc_data = {"playlist_name": self.active_game.playlist_name, 
-                        "number_of_players": str(self.active_game.n_cards),
-                                "refresh_flag": True}
-
-            requests.post(web_controller_url+'/game_misc_data',
-                                json=json.dumps(misc_data))
-        else:
-            print('There is not an active game. Create one using "makegame" and try again.')  
-        '''
-
     def do_auto(self, next_trigger_votes):
-            global song_timeout
-            global wait_seconds
-            """Start an automatic mode that is controlled by player votes. Provide a positive integer for number of votes to trigger next song. Provide 0 to stop voting and enter manual mode."""
-            self.auto_cmd = f':auto {next_trigger_votes}, timeset: {song_timeout}, waitset: {wait_seconds})'
-            if self.active_game:
-                self.prompt = f'\033[97m({self.active_game.playlist_name}'+self.auto_cmd+self.end_highlight
-            else:
-                self.prompt = f'\033[97m(No Active Game'+self.auto_cmd+self.end_highlight
+        """Start automatic mode that is controlled by player votes. Provide a positive integer for number of votes to trigger next song. Provide 0 to stop voting and enter manual mode."""
+        global song_timeout
+        global wait_seconds
+        self.auto_cmd = f':auto {next_trigger_votes}, timeset: {song_timeout}, waitset: {wait_seconds})'
+        if self.active_game:
+            self.prompt = f'\033[97m({self.active_game.playlist_name}'+self.auto_cmd+self.end_highlight
+        else:
+            self.prompt = f'\033[97m(No Active Game'+self.auto_cmd+self.end_highlight
 
-            if next_trigger_votes and int(next_trigger_votes) > 0:
+        if next_trigger_votes and int(next_trigger_votes) > 0:
 
-                # Clear out any votes that might be hanging around.
-                requests.get(web_controller_url+'/clear')
+            # Clear out any votes that might be hanging around.
+            requests.get(web_controller_url+'/clear')
 
-                # Non-zero voting is requested. Tell the web monitor to watch for votes.
-                self.web_monitor.voting()
+            # Non-zero voting is requested. Tell the web monitor to watch for votes.
+            self.web_monitor.voting()
 
-                # Only start the web monitor thread once (a singleton)
-                # If there are multiple monitor threads, songs will be skipped
-                if not self.web_monitor:
-                    self.web_monitor = WebMonitor(self, next_trigger_votes)
-                    print('The Web Monitor has been started. Next song triggers when ',next_trigger_votes, ' are received')      
-                    
-                    self.web_monitor.start()
-                    
-                    # Use the value of progress > 0 to determine when the nexttrack should
-                    # start automatically
-                    # progress = self.active_game.currently_playing()[0]
-                else:
-                    print(f'Changing the number of votes to change song from {str(self.web_monitor._trigger_vote_count)} to {next_trigger_votes}.')                    
-                    self.web_monitor._trigger_vote_count = int(next_trigger_votes)
-                    if self.web_monitor._running:
-                        print('The Web Monitor was started previously.')
-                    else:
-                        print('Starting the Web Monitor.')
-                        self.web_monitor.start()
+            # Only start the web monitor thread once (a singleton)
+            # If there are multiple monitor threads, songs will be skipped
+            if not self.web_monitor:
+                self.web_monitor = WebMonitor(self, next_trigger_votes)
+                print('The Web Monitor has been started. Next song triggers when ',next_trigger_votes, ' are received')      
                 
-                # Send next_trigger_votes to web controller so it will update
-                # this on each user screen
-                votes_required = {"votes_required": next_trigger_votes,
-                                  "song_timeout": str(song_timeout)}
-
-                requests.post(web_controller_url+'/set_votes_required',
-                                    json=json.dumps(votes_required))
-
-            elif next_trigger_votes and int(next_trigger_votes) <= 0:
-                if next_trigger_votes == 0:
-                    print('Zero trigger votes')
-                else:
-                    print(f'{next_trigger_votes} requested')
-
-                # Send the zero to the web controller to block further voting
-                # and to update the info on each user screen
-                votes_required = {"votes_required": next_trigger_votes}
-                requests.post(web_controller_url+'/set_votes_required',
-                                    json=json.dumps(votes_required))
-
-                # Even when not voting we want the 'Winner' button to work, so
-                # start the monitor if not running already to keep track of Winner claims.
-                if not self.web_monitor:
-                    self.web_monitor = WebMonitor(self, next_trigger_votes)
-
-                # if self.web_monitor:
-                    print('No more voting via the Web Monitor.')      
-                    self.web_monitor.start()
-                    self.web_monitor.no_voting()
+                self.web_monitor.start()
+                
+                # Use the value of progress > 0 to determine when the nexttrack should
+                # start automatically
+                # progress = self.active_game.currently_playing()[0]
             else:
-                print('You must enter the number of votes that will cause the next song to play')    
+                print(f'Changing the number of votes to change song from {str(self.web_monitor._trigger_vote_count)} to {next_trigger_votes}.')                    
+                self.web_monitor._trigger_vote_count = int(next_trigger_votes)
+                if self.web_monitor._running:
+                    print('The Web Monitor was started previously.')
+                else:
+                    print('Starting the Web Monitor.')
+                    self.web_monitor.start()
+            
+            # Send next_trigger_votes to web controller so it will update
+            # this on each user screen
+            votes_required = {"votes_required": next_trigger_votes,
+                              "song_timeout": str(song_timeout)}
+
+            requests.post(web_controller_url+'/set_votes_required',
+                                json=json.dumps(votes_required))
+
+        elif next_trigger_votes and int(next_trigger_votes) <= 0:
+            if next_trigger_votes == 0:
+                print('Zero trigger votes')
+            else:
+                print(f'{next_trigger_votes} requested')
+
+            # Send the zero to the web controller to block further voting
+            # and to update the info on each user screen
+            votes_required = {"votes_required": next_trigger_votes}
+            requests.post(web_controller_url+'/set_votes_required',
+                                json=json.dumps(votes_required))
+
+            # Even when not voting we want the 'Winner' button to work, so
+            # start the monitor if not running already to keep track of Winner claims.
+            if not self.web_monitor:
+                self.web_monitor = WebMonitor(self, next_trigger_votes)
+
+            # if self.web_monitor:
+                print('No more voting via the Web Monitor.')      
+                self.web_monitor.start()
+                self.web_monitor.no_voting()
+        else:
+            print('You must enter the number of votes that will cause the next song to play')    
 
 
     """Process commands related to Spotify playlist management for the game of MINGO """
@@ -1089,13 +1083,39 @@ saved. Use this command to resume playing a stopped game from when you stopped i
         except Exception as error:
             print(error)    
 
-    def do_view(self, card_num=None):
+    def do_view(self, options):
         """Specify a card number to view a single Mingo card from the active Mingo game. \
-If no number is specified, all cards are displayed."""
-        print("viewing card: ", card_num)
+If no number is specified, all cards are displayed. If two numbers are specified they are \
+treeated as a range of cards to print. If a start card number is entered with a * as the \
+second number, all cards from the start number will be viewed."""
+        start_card = None
+        end_card = None
+
         if self.active_game:
-            self.do_pause(None)
-            self.active_game.view_in_browser(card_num)
+            card_count = self.active_game.n_cards
+            if options:
+                arg_list = options.split(' ')
+                if len(arg_list) == 1:
+                    start_card = int(arg_list[0])
+                elif len(arg_list) == 2:
+                    start_card = int(arg_list[0])
+
+                    # A '*' indicates the last card is to be viewed 
+                    if arg_list[1] == '*':
+                        end_card = card_count-1
+                    else:
+                        end_card = int(arg_list[1])
+            
+            if start_card is not None and end_card is not None and end_card < start_card:
+                # Re-order the card numbers from low to high
+                start_card, end_card = end_card, start_card
+
+            if not(start_card and start_card+1 > card_count) and \
+               not(end_card and end_card+1 > card_count):  
+                self.do_pause(None)
+                self.active_game.view_in_browser(start_card, end_card)
+            else:
+                print(f'You requested card numbers outside the limit of {card_count} cards.')
         else:
             print('There is not an active game. Create one using "makegame" and try again.')  
 
@@ -1107,8 +1127,8 @@ If no number is specified, all cards are displayed."""
            print('There is not an active game. Create one using "'"makegame"'" and try again.')  
 
     def do_nexttrack(self, _):
+        """Play a randomly selected track from the active Mingo game. The track timer is started that determines when votes to skip to the next track are counted."""
         global track_timer
-        """Play a randomly selected track from the active Mingo game."""
         if self.active_game:
             if track_timer:
                 # print('stopping previous timer thread')
@@ -1125,14 +1145,13 @@ If no number is specified, all cards are displayed."""
         else:
            print('There is not an active game. Create one using "'"makegame"'" and try again.')  
 
-
-    def do_backup(self):
-
+"""
+     def do_backup(self):
         if self.active_game:
             self.active_game.play_previous_track()
         else:
             print('There is not an active game.')
-    
+"""   
 
     def do_pause(self,_):
         """Pause the song that is currently playing. Use resume to resume playing."""
@@ -1180,6 +1199,7 @@ If no number is specified, all cards are displayed."""
            print('There is not an active game. Create one using "'"makegame"'" and try again.')  
 
     def do_testmode(self, autoplay_count):
+        """Play a specified number of tracks without actually playing them. Testmode is used to evaluste how many plays might be made before a winner is found."""
         if self.active_game:
             if not autoplay_count:
                 autoplay_count = '1'
@@ -1232,6 +1252,15 @@ If no number is specified, all cards are displayed."""
 #-----------------------------------------
 # Global function definitions follow below
 #-----------------------------------------
+def get_formatted_timestamp():
+    # Get the current time
+    now = datetime.now()
+    
+    # Format the timestamp (customize the format as needed)
+    formatted_timestamp = now.strftime('%Y-%m-%d %H:%M:%S') # Example format: 'YYYY-MM-DD HH:MM:SS'
+    
+    return formatted_timestamp
+
 def empty_card_json(card_nbr):
     song_titles = []
     for _ in range(25):
