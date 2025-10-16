@@ -1090,10 +1090,10 @@ treeated as a range of cards to print. If a start card number is entered with a 
 second number, all cards from the start number will be viewed."""
         start_card = None
         end_card = None
-
+        
         if self.active_game:
             card_count = self.active_game.n_cards
-            if options:
+            if len(options)>0:
                 arg_list = options.split(' ')
                 if len(arg_list) == 1:
                     start_card = int(arg_list[0])
@@ -1105,6 +1105,8 @@ second number, all cards from the start number will be viewed."""
                         end_card = card_count-1
                     else:
                         end_card = int(arg_list[1])
+            print(f'start_card = {start_card}')
+            print(f'end_card = {end_card}')
             
             if start_card is not None and end_card is not None and end_card < start_card:
                 # Re-order the card numbers from low to high
@@ -1113,6 +1115,11 @@ second number, all cards from the start number will be viewed."""
             if not(start_card and start_card+1 > card_count) and \
                not(end_card and end_card+1 > card_count):  
                 self.do_pause(None)
+
+                print(f'start_card = {start_card}')
+                print(f'end_card = {end_card}')
+
+
                 self.active_game.view_in_browser(start_card, end_card)
             else:
                 print(f'You requested card numbers outside the limit of {card_count} cards.')
@@ -1145,14 +1152,13 @@ second number, all cards from the start number will be viewed."""
         else:
            print('There is not an active game. Create one using "'"makegame"'" and try again.')  
 
-"""
+    """
      def do_backup(self):
         if self.active_game:
             self.active_game.play_previous_track()
         else:
             print('There is not an active game.')
-"""   
-
+    """   
     def do_pause(self,_):
         """Pause the song that is currently playing. Use resume to resume playing."""
         if self.active_game:
