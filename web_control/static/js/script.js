@@ -96,6 +96,11 @@ async function postStopRequest()
     {
       throw new Error(`HTTP error! Status: ${response.status}`);
     }
+    else
+    {
+      stopButton.textContent = 'Thank you for voting!'
+      stopButton.disabled = true
+    }
 
     const result = await response.json();
     // responseMessage.textContent = `${result.stoprequests}`;
@@ -108,6 +113,8 @@ async function postStopRequest()
 
 }
 
+// updateStops is called repeatedly from the page to poll the server for
+// status information that is provided by the api named stopdata.
 async function updateStops()
 {
   // Prepare data to send
@@ -126,6 +133,17 @@ async function updateStops()
                                 });
 
   result = await response.json();
+
+  // The stopButton changes its text and color when pressed to show that
+  // a player has voted. The number of stoprequests is non-zero after
+  // someone votes, so when it is seen to be zero, the text and color
+  // of the stopButton needs to change to show that the button can be used
+  // again.
+  if (result.stoprequests.length==0)
+  {
+    stopButton.textContent = 'Vote to stop this song'
+    stopButton.disabled = false
+  }
 
   // Note that the enabled state of the buttons is controlled by 0 votes required
   if (result.votes_required > 0)
